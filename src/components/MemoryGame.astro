@@ -1,0 +1,380 @@
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+
+<style>
+  .card-container {
+    perspective: 1000px;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: block;
+  }
+
+  .card {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.6s;
+    cursor: pointer;
+  }
+
+  .card.flipped {
+    transform: rotateY(180deg);
+  }
+
+  .card-face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 0.5rem;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-front {
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    z-index: 2;
+  }
+
+  .card-back {
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    transform: rotateY(180deg);
+    z-index: 1;
+  }
+
+  .dark .card-front {
+    background-color: #1e293b;
+    border-color: #334155;
+  }
+
+  .dark .card-back {
+    background-color: #0f172a;
+    border-color: #1e293b;
+  }
+</style>
+
+<section class="max-w-xl mx-auto py-10">
+  <h2 class="text-3xl font-bold mb-4 text-center">Memory Matching Game</h2>
+  <div class="flex justify-between items-center mb-4">
+    <span class="text-lg">Moves: <span id="moves">0</span></span>
+    <button type="button" id="restart" class="btn btn-secondary">Restart</button>
+  </div>
+  <div class="grid grid-cols-4 gap-4" id="game-board">
+    <!-- Cards will be inserted here by JavaScript -->
+  </div>
+  <!-- Win toaster -->
+  <div id="win-toast" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 hidden transition-all duration-500">
+    <div class="bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg font-semibold flex items-center gap-2 relative">
+      🎉 Congratulations! You matched all the cards!
+    </div>
+  </div>
+</section>
+<canvas id="confetti-canvas" class="pointer-events-none fixed inset-0 z-40" style="width:100vw;height:100vh;display:none;"></canvas>
+
+<script>
+  const icons = [
+    'brand-javascript',
+    'brand-typescript',
+    'brand-python',
+    'brand-php',
+    'brand-html5',
+    'brand-css3',
+    'brand-react',
+    'brand-vue',
+  ];
+
+  function shuffle(array) {
+    let arr = array.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  // Confetti logic
+  function launchConfetti() {
+    const canvas = document.getElementById('confetti-canvas');
+    if (!canvas) return;
+    canvas.style.display = 'block';
+    const ctx = canvas.getContext('2d');
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    canvas.width = W;
+    canvas.height = H;
+
+    const confettiCount = 150;
+    const confetti = [];
+    for (let i = 0; i < confettiCount; i++) {
+      confetti.push({
+        x: Math.random() * W,
+        y: Math.random() * -H,
+        r: Math.random() * 6 + 4,
+        d: Math.random() * confettiCount,
+        color: `hsl(${Math.random() * 360}, 70%, 60%)`,
+        tilt: Math.random() * 10 - 10,
+        tiltAngleIncremental: Math.random() * 0.07 + 0.05,
+        tiltAngle: 0
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      confetti.forEach(c => {
+        ctx.beginPath();
+        ctx.lineWidth = c.r;
+        ctx.strokeStyle = c.color;
+        ctx.moveTo(c.x + c.tilt + c.r / 3, c.y);
+        ctx.lineTo(c.x + c.tilt, c.y + c.tilt + c.r / 5);
+        ctx.stroke();
+      });
+      update();
+    }
+
+    function update() {
+      confetti.forEach(c => {
+        c.y += Math.cos(c.d) + 1 + c.r / 2;
+        c.x += Math.sin(0);
+        c.tiltAngle += c.tiltAngleIncremental;
+        c.tilt = Math.sin(c.tiltAngle) * 15;
+
+        if (c.y > H) {
+          c.x = Math.random() * W;
+          c.y = -10;
+        }
+      });
+    }
+
+    let frame;
+    function animate() {
+      draw();
+      frame = requestAnimationFrame(animate);
+    }
+    animate();
+
+    setTimeout(() => {
+      cancelAnimationFrame(frame);
+      ctx.clearRect(0, 0, W, H);
+      canvas.style.display = 'none';
+    }, 2500);
+  }
+
+  // Toaster logic
+  function showWinToast() {
+    const toast = document.getElementById('win-toast');
+    toast.classList.remove('hidden');
+    launchConfetti();
+    setTimeout(() => {
+      toast.classList.add('hidden');
+    }, 3000);
+  }
+
+  class MemoryGame {
+    constructor() {
+      this.cards = [];
+      this.flipped = [];
+      this.matched = [];
+      this.moves = 0;
+      this.disabled = false;
+      this.gameBoard = document.getElementById('game-board');
+      this.movesDisplay = document.getElementById('moves');
+      document.getElementById('restart')?.addEventListener('click', () => this.startGame());
+      
+      // Initialize audio context
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      this.startGame();
+    }
+
+    // Sound generation methods
+    playFlipSound() {
+      // Create a noise buffer for the card flip sound
+      const bufferSize = this.audioContext.sampleRate * 0.1; // 100ms
+      const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      // Generate noise
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      // Create noise source
+      const noise = this.audioContext.createBufferSource();
+      noise.buffer = buffer;
+
+      // Create filter to shape the noise
+      const filter = this.audioContext.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1000;
+      filter.Q.value = 1;
+
+      // Create gain node for volume control
+      const gainNode = this.audioContext.createGain();
+      gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
+
+      // Connect nodes
+      noise.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(this.audioContext.destination);
+
+      // Play the sound
+      noise.start();
+      noise.stop(this.audioContext.currentTime + 0.1);
+    }
+
+    playMatchSound() {
+      // Create a more satisfying match sound
+      const oscillator = this.audioContext.createOscillator();
+      const gainNode = this.audioContext.createGain();
+      
+      // Use a triangle wave for a softer sound
+      oscillator.type = 'triangle';
+      
+      // Create a frequency sweep
+      oscillator.frequency.setValueAtTime(523.25, this.audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(1046.50, this.audioContext.currentTime + 0.2);
+      
+      // Fade out the sound
+      gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(this.audioContext.destination);
+      
+      oscillator.start();
+      oscillator.stop(this.audioContext.currentTime + 0.2);
+    }
+
+    playMismatchSound() {
+      // Create a more realistic mismatch sound
+      const oscillator = this.audioContext.createOscillator();
+      const gainNode = this.audioContext.createGain();
+      
+      // Use a sine wave for a clean sound
+      oscillator.type = 'sine';
+      
+      // Create a descending frequency sweep
+      oscillator.frequency.setValueAtTime(392, this.audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(261.63, this.audioContext.currentTime + 0.2);
+      
+      // Fade out the sound
+      gainNode.gain.setValueAtTime(0.15, this.audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(this.audioContext.destination);
+      
+      oscillator.start();
+      oscillator.stop(this.audioContext.currentTime + 0.2);
+    }
+
+    playWinSound() {
+      // Create a more celebratory win sound
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      const duration = 0.15;
+      
+      notes.forEach((frequency, index) => {
+        const oscillator = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        
+        // Use a triangle wave for a softer sound
+        oscillator.type = 'triangle';
+        
+        // Create a frequency sweep for each note
+        oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime + (index * duration));
+        oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.2, this.audioContext.currentTime + ((index + 0.5) * duration));
+        
+        // Fade in and out each note
+        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime + (index * duration));
+        gainNode.gain.linearRampToValueAtTime(0.2, this.audioContext.currentTime + ((index + 0.1) * duration));
+        gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + ((index + 1) * duration));
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        
+        oscillator.start(this.audioContext.currentTime + (index * duration));
+        oscillator.stop(this.audioContext.currentTime + ((index + 1) * duration));
+      });
+    }
+
+    startGame() {
+      const cardIcons = shuffle([...icons, ...icons]);
+      this.cards = cardIcons.map((icon, i) => ({ icon, id: i, matched: false }));
+      this.flipped = [];
+      this.matched = [];
+      this.moves = 0;
+      this.disabled = false;
+      this.render();
+    }
+
+    handleFlip(idx) {
+      if (this.disabled || this.flipped.includes(idx) || this.cards[idx].matched) return;
+      
+      const newFlipped = [...this.flipped, idx];
+      this.flipped = newFlipped;
+      this.render();
+      this.playFlipSound();
+
+      if (newFlipped.length === 2) {
+        this.disabled = true;
+        this.moves++;
+        this.movesDisplay.textContent = this.moves.toString();
+
+        setTimeout(() => {
+          const [i1, i2] = newFlipped;
+          if (this.cards[i1].icon === this.cards[i2].icon) {
+            this.matched = [...this.matched, i1, i2];
+            this.cards = this.cards.map((c, i) => 
+              i === i1 || i === i2 ? { ...c, matched: true } : c
+            );
+            this.playMatchSound();
+          } else {
+            this.playMismatchSound();
+          }
+          this.flipped = [];
+          this.disabled = false;
+          this.render();
+
+          if (this.matched.length === this.cards.length) {
+            showWinToast();
+            this.playWinSound();
+          }
+        }, 900);
+      }
+    }
+
+    render() {
+      this.gameBoard.innerHTML = this.cards.map((card, idx) => {
+        const isFlipped = this.flipped.includes(idx) || this.matched.includes(idx);
+        return `
+          <button
+            class="aspect-square rounded-lg flex items-center justify-center text-4xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary ${isFlipped ? 'cursor-default' : 'hover:bg-primary/10'}"
+            data-index="${idx}"
+            aria-label="${isFlipped ? 'Revealed card' : 'Hidden card'}"
+            ${isFlipped || this.disabled ? 'disabled' : ''}
+          >
+            ${isFlipped ? `<i class=\"ti ti-${card.icon} text-4xl\"></i>` : '<span class="sr-only">Hidden</span>'}
+          </button>
+        `;
+      }).join('');
+
+      // Add event listeners to all cards
+      this.gameBoard.querySelectorAll('button').forEach(button => {
+        button.addEventListener('click', () => {
+          const idx = parseInt(button.getAttribute('data-index') || '0');
+          this.handleFlip(idx);
+        });
+      });
+    }
+  }
+
+  // Initialize the game
+  const game = new MemoryGame();
+</script> 
