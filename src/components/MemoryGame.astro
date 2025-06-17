@@ -90,28 +90,31 @@
     'brand-vue',
   ];
 
-  function shuffle(array) {
-    let arr = array.slice();
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
   // Confetti logic
+  type ConfettiParticle = {
+    x: number;
+    y: number;
+    r: number;
+    d: number;
+    color: string;
+    tilt: number;
+    tiltAngleIncremental: number;
+    tiltAngle: number;
+  };
+
   function launchConfetti() {
-    const canvas = document.getElementById('confetti-canvas');
+    const canvas = document.getElementById('confetti-canvas') as HTMLCanvasElement | null;
     if (!canvas) return;
     canvas.style.display = 'block';
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const W = window.innerWidth;
     const H = window.innerHeight;
     canvas.width = W;
     canvas.height = H;
 
     const confettiCount = 150;
-    const confetti = [];
+    const confetti: ConfettiParticle[] = [];
     for (let i = 0; i < confettiCount; i++) {
       confetti.push({
         x: Math.random() * W,
@@ -126,20 +129,20 @@
     }
 
     function draw() {
-      ctx.clearRect(0, 0, W, H);
-      confetti.forEach(c => {
-        ctx.beginPath();
-        ctx.lineWidth = c.r;
-        ctx.strokeStyle = c.color;
-        ctx.moveTo(c.x + c.tilt + c.r / 3, c.y);
-        ctx.lineTo(c.x + c.tilt, c.y + c.tilt + c.r / 5);
-        ctx.stroke();
+      ctx!.clearRect(0, 0, W, H);
+      confetti.forEach((c: ConfettiParticle) => {
+        ctx!.beginPath();
+        ctx!.lineWidth = c.r;
+        ctx!.strokeStyle = c.color;
+        ctx!.moveTo(c.x + c.tilt + c.r / 3, c.y);
+        ctx!.lineTo(c.x + c.tilt, c.y + c.tilt + c.r / 5);
+        ctx!.stroke();
       });
       update();
     }
 
     function update() {
-      confetti.forEach(c => {
+      confetti.forEach((c: ConfettiParticle) => {
         c.y += Math.cos(c.d) + 1 + c.r / 2;
         c.x += Math.sin(0);
         c.tiltAngle += c.tiltAngleIncremental;
@@ -152,7 +155,7 @@
       });
     }
 
-    let frame;
+    let frame: number;
     function animate() {
       draw();
       frame = requestAnimationFrame(animate);
@@ -161,14 +164,15 @@
 
     setTimeout(() => {
       cancelAnimationFrame(frame);
-      ctx.clearRect(0, 0, W, H);
+      ctx!.clearRect(0, 0, W, H);
       canvas.style.display = 'none';
     }, 2500);
   }
 
   // Toaster logic
-  function showWinToast() {
+  function showWinToast(): void {
     const toast = document.getElementById('win-toast');
+    if (!toast) return;
     toast.classList.remove('hidden');
     launchConfetti();
     setTimeout(() => {
@@ -176,19 +180,35 @@
     }, 3000);
   }
 
+  function shuffle(array: string[]): string[] {
+    const arr = array.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
   class MemoryGame {
+    cards: { icon: string; id: number; matched: boolean }[] = [];
+    flipped: number[] = [];
+    matched: number[] = [];
+    moves: number = 0;
+    disabled: boolean = false;
+    gameBoard: HTMLDivElement;
+    movesDisplay: HTMLElement;
+    audioContext: AudioContext;
+
     constructor() {
       this.cards = [];
       this.flipped = [];
       this.matched = [];
       this.moves = 0;
       this.disabled = false;
-      this.gameBoard = document.getElementById('game-board');
-      this.movesDisplay = document.getElementById('moves');
+      this.gameBoard = document.getElementById('game-board') as HTMLDivElement;
+      this.movesDisplay = document.getElementById('moves') as HTMLElement;
+      this.audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       document.getElementById('restart')?.addEventListener('click', () => this.startGame());
-      
-      // Initialize audio context
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
       this.startGame();
     }
 
@@ -314,9 +334,8 @@
       this.render();
     }
 
-    handleFlip(idx) {
+    handleFlip(idx: number): void {
       if (this.disabled || this.flipped.includes(idx) || this.cards[idx].matched) return;
-      
       const newFlipped = [...this.flipped, idx];
       this.flipped = newFlipped;
       this.render();
@@ -331,7 +350,7 @@
           const [i1, i2] = newFlipped;
           if (this.cards[i1].icon === this.cards[i2].icon) {
             this.matched = [...this.matched, i1, i2];
-            this.cards = this.cards.map((c, i) => 
+            this.cards = this.cards.map((c, i) =>
               i === i1 || i === i2 ? { ...c, matched: true } : c
             );
             this.playMatchSound();
@@ -350,8 +369,8 @@
       }
     }
 
-    render() {
-      this.gameBoard.innerHTML = this.cards.map((card, idx) => {
+    render(): void {
+      this.gameBoard.innerHTML = this.cards.map((card: { icon: string; id: number; matched: boolean }, idx: number) => {
         const isFlipped = this.flipped.includes(idx) || this.matched.includes(idx);
         return `
           <button
@@ -360,15 +379,15 @@
             aria-label="${isFlipped ? 'Revealed card' : 'Hidden card'}"
             ${isFlipped || this.disabled ? 'disabled' : ''}
           >
-            ${isFlipped ? `<i class=\"ti ti-${card.icon} text-4xl\"></i>` : '<span class="sr-only">Hidden</span>'}
+            ${isFlipped ? `<i class="ti ti-${card.icon} text-4xl"></i>` : '<span class="sr-only">Hidden</span>'}
           </button>
         `;
       }).join('');
 
       // Add event listeners to all cards
-      this.gameBoard.querySelectorAll('button').forEach(button => {
+      this.gameBoard.querySelectorAll('button').forEach((button: Element) => {
         button.addEventListener('click', () => {
-          const idx = parseInt(button.getAttribute('data-index') || '0');
+          const idx = parseInt((button as HTMLElement).getAttribute('data-index') || '0');
           this.handleFlip(idx);
         });
       });
@@ -376,5 +395,5 @@
   }
 
   // Initialize the game
-  const game = new MemoryGame();
+  new MemoryGame();
 </script> 

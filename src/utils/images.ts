@@ -71,22 +71,32 @@ export const adaptOpenGraphImages = async (
           };
         }
 
-        let _image;
+        let _image: HTMLImageElement | undefined;
 
         if (
           typeof resolvedImage === 'string' &&
           (resolvedImage.startsWith('http://') || resolvedImage.startsWith('https://')) &&
           isUnpicCompatible(resolvedImage)
         ) {
-          _image = (await unpicOptimizer(resolvedImage, [defaultWidth], defaultWidth, defaultHeight, 'jpg'))[0];
+          const result = (await unpicOptimizer(resolvedImage, [defaultWidth], defaultWidth, defaultHeight, 'jpg'))[0];
+          if (result && typeof window !== 'undefined') {
+            _image = new Image();
+            _image.src = result.src;
+            _image.width = result.width;
+          }
         } else if (resolvedImage) {
           const dimensions =
             typeof resolvedImage !== 'string' && resolvedImage?.width <= defaultWidth
               ? [resolvedImage?.width, resolvedImage?.height]
               : [defaultWidth, defaultHeight];
-          _image = (
+          const result2 = (
             await astroAssetsOptimizer(resolvedImage, [dimensions[0]], dimensions[0], dimensions[1], 'jpg')
           )[0];
+          if (result2 && typeof window !== 'undefined') {
+            _image = new Image();
+            _image.src = result2.src;
+            _image.width = result2.width;
+          }
         }
 
         if (typeof _image === 'object') {
