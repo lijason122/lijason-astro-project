@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
 
 <style>
   .card-container {
@@ -76,7 +76,10 @@
     </div>
   </div>
 </section>
-<canvas id="confetti-canvas" class="pointer-events-none fixed inset-0 z-40" style="width:100vw;height:100vh;display:none;"></canvas>
+<canvas
+  id="confetti-canvas"
+  class="pointer-events-none fixed inset-0 z-40"
+  style="width:100vw;height:100vh;display:none;"></canvas>
 
 <script>
   const icons = [
@@ -124,7 +127,7 @@
         color: `hsl(${Math.random() * 360}, 70%, 60%)`,
         tilt: Math.random() * 10 - 10,
         tiltAngleIncremental: Math.random() * 0.07 + 0.05,
-        tiltAngle: 0
+        tiltAngle: 0,
       });
     }
 
@@ -207,7 +210,8 @@
       this.disabled = false;
       this.gameBoard = document.getElementById('game-board') as HTMLDivElement;
       this.movesDisplay = document.getElementById('moves') as HTMLElement;
-      this.audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      this.audioContext = new (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       document.getElementById('restart')?.addEventListener('click', () => this.startGame());
       this.startGame();
     }
@@ -218,7 +222,7 @@
       const bufferSize = this.audioContext.sampleRate * 0.1; // 100ms
       const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
       const data = buffer.getChannelData(0);
-      
+
       // Generate noise
       for (let i = 0; i < bufferSize; i++) {
         data[i] = Math.random() * 2 - 1;
@@ -253,21 +257,21 @@
       // Create a more satisfying match sound
       const oscillator = this.audioContext.createOscillator();
       const gainNode = this.audioContext.createGain();
-      
+
       // Use a triangle wave for a softer sound
       oscillator.type = 'triangle';
-      
+
       // Create a frequency sweep
       oscillator.frequency.setValueAtTime(523.25, this.audioContext.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(1046.50, this.audioContext.currentTime + 0.2);
-      
+      oscillator.frequency.exponentialRampToValueAtTime(1046.5, this.audioContext.currentTime + 0.2);
+
       // Fade out the sound
       gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
-      
+
       oscillator.connect(gainNode);
       gainNode.connect(this.audioContext.destination);
-      
+
       oscillator.start();
       oscillator.stop(this.audioContext.currentTime + 0.2);
     }
@@ -276,51 +280,54 @@
       // Create a more realistic mismatch sound
       const oscillator = this.audioContext.createOscillator();
       const gainNode = this.audioContext.createGain();
-      
+
       // Use a sine wave for a clean sound
       oscillator.type = 'sine';
-      
+
       // Create a descending frequency sweep
       oscillator.frequency.setValueAtTime(392, this.audioContext.currentTime);
       oscillator.frequency.exponentialRampToValueAtTime(261.63, this.audioContext.currentTime + 0.2);
-      
+
       // Fade out the sound
       gainNode.gain.setValueAtTime(0.15, this.audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
-      
+
       oscillator.connect(gainNode);
       gainNode.connect(this.audioContext.destination);
-      
+
       oscillator.start();
       oscillator.stop(this.audioContext.currentTime + 0.2);
     }
 
     playWinSound() {
       // Create a more celebratory win sound
-      const notes = [523.25, 659.25, 783.99, 1046.50];
+      const notes = [523.25, 659.25, 783.99, 1046.5];
       const duration = 0.15;
-      
+
       notes.forEach((frequency, index) => {
         const oscillator = this.audioContext.createOscillator();
         const gainNode = this.audioContext.createGain();
-        
+
         // Use a triangle wave for a softer sound
         oscillator.type = 'triangle';
-        
+
         // Create a frequency sweep for each note
-        oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime + (index * duration));
-        oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.2, this.audioContext.currentTime + ((index + 0.5) * duration));
-        
+        oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime + index * duration);
+        oscillator.frequency.exponentialRampToValueAtTime(
+          frequency * 1.2,
+          this.audioContext.currentTime + (index + 0.5) * duration
+        );
+
         // Fade in and out each note
-        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime + (index * duration));
-        gainNode.gain.linearRampToValueAtTime(0.2, this.audioContext.currentTime + ((index + 0.1) * duration));
-        gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + ((index + 1) * duration));
-        
+        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime + index * duration);
+        gainNode.gain.linearRampToValueAtTime(0.2, this.audioContext.currentTime + (index + 0.1) * duration);
+        gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + (index + 1) * duration);
+
         oscillator.connect(gainNode);
         gainNode.connect(this.audioContext.destination);
-        
-        oscillator.start(this.audioContext.currentTime + (index * duration));
-        oscillator.stop(this.audioContext.currentTime + ((index + 1) * duration));
+
+        oscillator.start(this.audioContext.currentTime + index * duration);
+        oscillator.stop(this.audioContext.currentTime + (index + 1) * duration);
       });
     }
 
@@ -350,9 +357,7 @@
           const [i1, i2] = newFlipped;
           if (this.cards[i1].icon === this.cards[i2].icon) {
             this.matched = [...this.matched, i1, i2];
-            this.cards = this.cards.map((c, i) =>
-              i === i1 || i === i2 ? { ...c, matched: true } : c
-            );
+            this.cards = this.cards.map((c, i) => (i === i1 || i === i2 ? { ...c, matched: true } : c));
             this.playMatchSound();
           } else {
             this.playMismatchSound();
@@ -370,9 +375,10 @@
     }
 
     render(): void {
-      this.gameBoard.innerHTML = this.cards.map((card: { icon: string; id: number; matched: boolean }, idx: number) => {
-        const isFlipped = this.flipped.includes(idx) || this.matched.includes(idx);
-        return `
+      this.gameBoard.innerHTML = this.cards
+        .map((card: { icon: string; id: number; matched: boolean }, idx: number) => {
+          const isFlipped = this.flipped.includes(idx) || this.matched.includes(idx);
+          return `
           <button
             class="aspect-square rounded-lg flex items-center justify-center text-4xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary ${isFlipped ? 'cursor-default' : 'hover:bg-primary/10'}"
             data-index="${idx}"
@@ -382,7 +388,8 @@
             ${isFlipped ? `<i class="ti ti-${card.icon} text-4xl"></i>` : '<span class="sr-only">Hidden</span>'}
           </button>
         `;
-      }).join('');
+        })
+        .join('');
 
       // Add event listeners to all cards
       this.gameBoard.querySelectorAll('button').forEach((button: Element) => {
@@ -396,4 +403,4 @@
 
   // Initialize the game
   new MemoryGame();
-</script> 
+</script>
